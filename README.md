@@ -38,9 +38,7 @@ One descriptor per common shape:
 | Native module library (Form A) | [`mcpplibs.tinyhttps`](pkgs/t/tinyhttps.lua) · [`gzj-creator.galay`](pkgs/g/gzj-creator.galay.lua) |
 | C sources + `features` | [`compat.cjson`](pkgs/c/compat.cjson.lua) |
 | C++ sources, several versions | [`compat.yaml-cpp`](pkgs/c/compat.yaml-cpp.lua) |
-| Boost header-only components | [`compat.boost-any`](pkgs/c/compat.boost-any.lua) · [`compat.boost-circular-buffer`](pkgs/c/compat.boost-circular-buffer.lua) · [`compat.boost-concept-check`](pkgs/c/compat.boost-concept-check.lua) · [`compat.boost-utility`](pkgs/c/compat.boost-utility.lua) |
 | Header-only | [`compat.gtl`](pkgs/c/compat.gtl.lua) |
-| Linux-only C++ network library | [`compat.muduo`](pkgs/c/compat.muduo.lua) |
 | Generated config header | [`compat.c-ares`](pkgs/c/compat.c-ares.lua) |
 | C++23 module wrapper | [`nlohmann.json`](pkgs/n/nlohmann.json.lua) |
 | C++23 module shipped by upstream | [`khronos.vulkan-hpp`](pkgs/k/khronos.vulkan-hpp.lua) |

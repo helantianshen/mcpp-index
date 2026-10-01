@@ -9,6 +9,10 @@
 
 ### Added
 
+- **`compat.libevent` 2.1.13。** Linux、macOS、Windows 分别通过上游 CMake 生成
+  平台配置头,再由 mcpp 编译 libevent 核心、HTTP/DNS 扩展和对应系统后端;
+  TLS 可选组件未收录。workspace 成员测试事件分派、缓冲区和 HTTP 对象。
+
 - **`compat.muduo` 2.0.3 与 Boost 头组件。** muduo 仅支持 Linux;内联构建
   `muduo_base`/`muduo_net` 源码,按上游 2.0.3 的依赖补充 `compat.boost-any`、
   `compat.boost-circular-buffer`、`compat.boost-concept-check` 并复用既有 `compat.boost-utility`。

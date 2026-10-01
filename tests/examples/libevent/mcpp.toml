@@ -1,0 +1,6 @@
+[package]
+name = "libevent-tests"
+version = "0.1.0"
+
+[dependencies.compat]
+libevent = "2.1.13"

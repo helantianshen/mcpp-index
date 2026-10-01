@@ -107,6 +107,7 @@ members = [
     "tests/examples/libassert",
     "tests/examples/libcoro",
     "tests/examples/libdrm",
+    "tests/examples/libevent",
     "tests/examples/libffi",
     "tests/examples/expat",
     "tests/examples/spirv-headers",

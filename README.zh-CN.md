@@ -37,8 +37,6 @@ mcpp self config --mirror CN   # 切换至国内镜像,默认使用 GLOBAL 上�
 | 原生模块库(Form A) | [`mcpplibs.tinyhttps`](pkgs/t/tinyhttps.lua) · [`gzj-creator.galay`](pkgs/g/gzj-creator.galay.lua) |
 | C 源码 + `features` | [`compat.cjson`](pkgs/c/compat.cjson.lua) |
 | C++ 源码,多版本 | [`compat.yaml-cpp`](pkgs/c/compat.yaml-cpp.lua) |
-| Boost 头文件组件 | [`compat.boost-any`](pkgs/c/compat.boost-any.lua) · [`compat.boost-circular-buffer`](pkgs/c/compat.boost-circular-buffer.lua) · [`compat.boost-concept-check`](pkgs/c/compat.boost-concept-check.lua) · [`compat.boost-utility`](pkgs/c/compat.boost-utility.lua) |
-| 仅 Linux 的 C++ 网络库 | [`compat.muduo`](pkgs/c/compat.muduo.lua) |
 | header-only | [`compat.gtl`](pkgs/c/compat.gtl.lua) |
 | 生成 config 头 | [`compat.c-ares`](pkgs/c/compat.c-ares.lua) |
 | C++23 module wrapper | [`nlohmann.json`](pkgs/n/nlohmann.json.lua) |
