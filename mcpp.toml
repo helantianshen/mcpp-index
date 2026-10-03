@@ -145,6 +145,7 @@ members = [
     "tests/examples/spdlog-compiled",
     "tests/examples/sqlite3",
     "tests/examples/sqlitecpp",
+    "tests/examples/taskflow-module",
     "tests/examples/tinyhttps",
     "tests/examples/usockets",
     "tests/examples/opencl",
