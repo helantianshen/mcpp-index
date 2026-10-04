@@ -1,6 +1,6 @@
 # Quill 13.0.0 接入 mcpp 模块生态
 
-日期：2026-10-04。状态：已按方案 A 实施，Linux GCC 与 LLVM/libc++ 验收通过；macOS、Windows 的运行结果由 PR CI 验证。
+日期：2026-10-04。状态：已实施，Linux GCC/LLVM、macOS ARM、Windows 构建运行均通过。验收依据见第 5 节。
 
 ## 1. 范围与消费方式
 
@@ -11,11 +11,11 @@
 quill = "13.0.0"
 ```
 
-尚未发布到远程索引，本地使用时需要指向本 checkout：
+PR 合并发布前，本地使用需要指向索引 checkout；将示例路径替换为自己的仓库路径：
 
 ```toml
 [indices]
-odygrd = { path = "/home/helan/community/mcpp-community/mcpp-index" }
+odygrd = { path = "/path/to/mcpp-index" }
 ```
 
 消费者写 `import std; import quill;`。可通过 `quill::Frontend` 创建 sink/logger，使用无宏 API `quill::info(logger, "answer={}", 42)` 或运行时级别 `quill::log`。使用上游日志宏时额外写：
@@ -65,13 +65,13 @@ macOS ARM 的 PR CI 暴露两处上游模块入口问题，安装钩子执行两
 - x86 intrinsic 包含增加 x86 目标架构条件。Clang 在 ARM 上也能找到 `x86gprintrin.h`，仅靠 `__has_include` 会触发无效汇编约束和不存在的 x86 builtin。
 - 在 global module fragment 中为 Apple 预包含 Mach 头，以及后端使用的 `unistd.h`、`fcntl.h`、`sys/file.h`、`sys/mman.h`、`sched.h`、`time.h` 和遗漏的 `<charconv>`。否则 Mach 类型、`timeval`、`timespec` 等在全局模块和 Quill 模块中重复归属，编译报错。
 
-失败证据见 [PR CI 的 macOS job](https://github.com/mcpplibs/mcpp-index/actions/runs/37198494639/job/111425198293)。适配不修改 Quill 头文件、导出列表或日志实现。后续 CI 的 [macOS 系统头错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892513) 和 [Windows 换行匹配错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892875) 分别对应系统头补全和换行规范化；本地钩子检查已验证 CRLF/LF 生成相同结果，预期替换缺失时安装失败。
+失败证据见 [PR CI 的 macOS job](https://github.com/mcpplibs/mcpp-index/actions/runs/37198494639/job/111425198293)。适配不修改 Quill 头文件、导出列表或日志实现。后续 CI 的 [macOS 系统头错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892513) 和 [Windows 换行匹配错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892875) 分别对应系统头补全和换行规范化；仓库中的 [安装钩子检查](../../tests/check_quill_install.lua) 验证 CRLF/LF 生成相同结果，以及输入不可读、模块声明或替换位置缺失/重复时，在任何写入或安装目录操作前失败；该检查已接入 CI lint。
 
 扩展名适配参考 [`fmtlib.fmt`](../../pkgs/f/fmtlib.fmt.lua)，避免 Clang 将 `.cc` 当普通翻译单元。实际 GCC、LLVM 构建图均只编译 `.cppm`，分别生成 `quill.gcm`、`quill.pcm`；未增加 `scan_overrides` 或完整生成式 wrapper。没有执行 CMake，`QUILL_BUILD_MODULE=ON` 不是本包的构建开关。
 
 线程选项仅在 Linux 最终链接时传入，已检查两套构建图的 `ldflags`。不能只给模块或消费者一方增加影响 PCM 配置的 `-pthread` 编译选项：调研中的宿主 Clang 曾复现配置不一致，分开编译与链接后通过。当前 mcpp GCC/LLVM 构建无需额外线程编译选项。
 
-上游对 MinGW 有 `ucrtbase` 分支，未将其泛化为所有 Windows 编译器的链接需求；Windows 的实际需求留待其 CI 工具链验证。未建立 CN 镜像，不声明猜测的地址；以后若增加镜像，须上传相同归档字节并核对摘要与可达性。
+上游对 MinGW 有 `ucrtbase` 分支，未将其泛化为所有 Windows 编译器的链接需求；本次 Windows CI 使用 MSVC ABI 工具链并已通过，未验证 MinGW。未建立 CN 镜像，不声明猜测的地址；以后若增加镜像，须上传相同归档字节并核对摘要与可达性。
 
 选择依据：复用模块及安装钩子参考 [Taskflow](2026-10-04-add-taskflow-spec.md)，保留上游模块名参考 [`khronos.vulkan-hpp`](../../pkgs/k/khronos.vulkan-hpp.lua)，内置 fmt 与 build/test 分别验证参考 [spdlog](2026-07-15-add-spdlog-plan.md)。普通头文件 `compat.quill` 无法提供所需 import；独立 Form A 适配仓会增加维护责任，目前均无必要。
 
@@ -91,41 +91,41 @@ macOS ARM 的 PR CI 暴露两处上游模块入口问题，安装钩子执行两
 4. producer 通过 `std::jthread` join，随后 flush/stop，再读回文件，断言三条有效消息的格式化内容和行数；不依赖时间戳、并发顺序或任意 sleep。
 5. 每次创建独享临时目录；断言失败返回非零，异常写 stderr；结束后停止后端并清理目录。测试超时 30 秒。
 
-## 5. 实际验证
+## 5. 实际验证与复现
 
-宿主为 Linux x86_64，命令由 Bash 执行。使用临时解包的 **mcpp 2026.10.1.2**，与 `.github/workflows/validate.yml` 一致；PATH 中较新的 mcpp 未作为验收替代。通过进程级 `MCPP_HOME=/home/helan/.mcpp` 复用 GCC 16.1.0 和 LLVM 22.1.8，没有修改全局默认版本。
+模块实现提交 `2b17c5587d1b0410272621b9f3940f1bfd97841e` 的 [PR CI 验收](https://github.com/mcpplibs/mcpp-index/actions/runs/37199001009) 已通过，包含 Linux GCC/LLVM、macOS ARM、Windows 的真实构建运行，以及 lint、镜像 URL 和图形安装副作用检查。跨平台结果不是仅由描述符解析推断。
+
+| 检查 | 结果 |
+|---|---|
+| Linux GCC 16.1.0、LLVM 22.1.8/libc++ | 开发构建、最终安装补丁后的隔离测试均为 `1 passed; 0 failed` |
+| macOS ARM、Windows MSVC ABI | PR CI 各 `1 passed; 0 failed` |
+| Linux Release（`-O2`） | GCC、LLVM 各 `1 passed; 0 failed` |
+| GCC 增量与独立消费工程 | 增量测试通过；独立 `mcpp run --cache off` 编译、链接和运行断言通过 |
+| 冷安装 | 独立测试目录实际下载、解包和运行安装钩子；不将 `--cache off` 本身作为重装证据 |
+| 安装文件比较 | 507 个上游文件内容不变，仅新增带模块入口适配的 `.cppm` |
+| 安装钩子边界 | LF/CRLF 输出一致；不可读输入、缺失/重复模块声明、缺失/重复替换位置五个负向用例均通过 |
+| Lua、schema 和索引 lint | Lua 语法、三平台描述符解析、镜像 URL、包身份、保留 namespace、全仓跨包引用/版本一致性/重复版本检查通过 |
+
+在仓库根目录使用 Bash 复现。先将 `MCPP_ROOT` 设置为已解包的 mcpp 2026.10.1.2 发布目录；`MCPP_HOME` 可指定已有 GCC/LLVM 工具链目录，默认使用用户目录下的 `.mcpp`。这些设置仅作用于当前 Shell，不切换全局默认版本。安装钩子检查仅需要 Lua 5.4，不需要上游归档、网络或临时调查文件。
 
 ```sh
-export MCPP=/tmp/quill-implementation/mcpp-2026.10.1.2-linux-x86_64/bin/mcpp
-export MCPP_HOME=/home/helan/.mcpp
+: "${MCPP_ROOT:?请设置 mcpp 2026.10.1.2 发布目录}"
+export MCPP="$MCPP_ROOT/bin/mcpp"
+export MCPP_HOME="${MCPP_HOME:-$HOME/.mcpp}"
 export MCPP_INDEX_MIRROR=GLOBAL
-export MCPP_VENDORED_XLINGS=/tmp/quill-implementation/mcpp-2026.10.1.2-linux-x86_64/registry/bin/xlings
+export MCPP_VENDORED_XLINGS="$MCPP_ROOT/registry/bin/xlings"
+test "$("$MCPP" --version)" = "mcpp 2026.10.1.2" || exit 1
+lua5.4 tests/check_quill_install.lua
 "$MCPP" xpkg parse --all-os pkgs/o/odygrd.quill.lua
 "$MCPP" test -p quill-module --cache off --timeout 30
 "$MCPP" test -p quill-module --toolchain llvm@22.1.8 --cache off --timeout 30
 "$MCPP" test -p quill-module --timeout 30
+"$MCPP" test -p quill-module --profile release --cache off --timeout 30
+"$MCPP" test -p quill-module --toolchain llvm@22.1.8 --profile release --cache off --timeout 30
 ```
 
-| 检查 | 实际结果 |
-|---|---|
-| 隔离临时索引安装及 GCC/LLVM 测试 | 各 `1 passed; 0 failed` |
-| 正式 workspace Linux GCC 16.1.0 | `1 passed; 0 failed`，19.78 秒，包含 6.9 秒下载 |
-| 正式 workspace Linux LLVM 22.1.8 / libc++ | `1 passed; 0 failed`，6.03 秒 |
-| 模块入口适配后的隔离冷安装及 GCC/LLVM | 各 `1 passed; 0 failed`，GCC 19.97 秒、LLVM 6.05 秒；507 个原始文件及生成入口的两处替换均已逐字节核对 |
-| 正式 workspace GCC 增量 | `1 passed; 0 failed`，0.15 秒，构建 0.03 秒 |
-| 独立普通消费工程 | `/tmp/quill-implementation/consumer` 指向正式 checkout，`mcpp run --cache off` 实际编译、链接、运行上述日志断言，退出 0 |
-| 冷安装 | 隔离工程、正式 workspace、普通消费工程分别实际下载和安装；不将 `--cache off` 本身当作重装证据 |
-| 安装文件比较 | 507 个上游文件内容不变，仅新增带两处模块入口适配的 `.cppm` |
-| Lua 语法与三平台 xpkg 解析 | 通过，三平台均解析为 1 个 source、1 个 include 根 |
-| 镜像 URL、包身份、保留 namespace | 新描述符通过对应 lint |
-| 跨包引用、三平台版本一致性、重复版本 | 全仓对应 lint 通过 |
-| CI 选择规则 | 描述符全名匹配唯一 `quill-module` 成员；新增 workspace 成员及测试路径也命中现有规则 |
-| diff 空白检查 | 通过 |
+## 6. 验证边界
 
-临时工具、独立消费工程及日志位于 `/tmp/quill-implementation/`；原归档和宿主探测材料位于 `/tmp/quill-spec-G8O9Nt/`，不是长期源码依赖。
+上游仍将模块标为实验性。当前覆盖 Linux x86_64、macOS ARM 和 Windows MSVC ABI 工具链；未验证 MinGW、跨 DLL、完整 Quill 文本头与模块混用，以及全部可选 sink/codec/metrics，不承诺性能指标。未上传 CN 镜像。
 
-## 6. 未验证与发布边界
-
-首次 PR CI 的 Windows 构建运行通过；macOS ARM 的失败由上述两处模块入口适配处理，最终验收以最新提交的 CI 结果为准。三平台描述符解析不等于运行验收。本节记录本地验证边界，跨平台结果以 PR CI 为准；未上传 CN 镜像。上游仍将模块标为实验性；本次不承诺所有 sink/codec/metrics、跨 DLL、完整文本头混用或性能指标。
-
-后续三平台发布前应让 macOS/Windows 运行同一成员；若需要超出模块入口的小范围适配、改动日志实现或 mcpp 引擎，应先保留失败复现并重新审查范围，不以跳过平台或静默改成头文件包代替验收。
+升级上游或工具链时应重新执行同一套跨平台测试。若需要超出模块入口的小范围适配、改动日志实现或 mcpp 引擎，应保留失败复现并重新审查范围，不以跳过平台或静默改成头文件包代替验收。

@@ -531,6 +531,8 @@ jobs:
       # release that republished an old tag would leave no other trace.
       - name: Lint duplicate versions
         run: lua5.4 tests/check_duplicate_versions.lua pkgs/*/*.lua
+      - name: Check Quill install hook boundaries
+        run: lua5.4 tests/check_quill_install.lua
       # The compatibility measurement's classifier decides a PUBLISHED figure
       # -- which members "run", which "build", and which were correctly
       # "refused" -- and the only thing that exercised it was the four-hour
