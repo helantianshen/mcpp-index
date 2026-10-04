@@ -49,6 +49,8 @@ function install()
     local wrap = "quill-" .. pkginfo.version()
     local source = path.join(wrap, "src/quill.cc")
     local content = assert(io.readfile(source), "odygrd.quill: cannot read " .. source)
+    -- 安装环境的文本读取可能转换 CRLF，补丁统一按 LF 匹配
+    content = content:gsub("\r\n", "\n")
     local _, count = content:gsub("export module quill;", "")
     assert(count == 1, "odygrd.quill: expected exactly one module declaration")
     local function patch(before, after)
@@ -59,11 +61,11 @@ function install()
     end
 
     -- Clang 的资源目录在 ARM 上也含 x86 头，存在性检查不能代替目标架构判断
-    patch("#if !defined(__INTEL_COMPILER)\r\n",
-        "#if !defined(__INTEL_COMPILER) && (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64))\r\n")
-    -- Mach 声明属于系统全局模块，须在 Quill 的模块声明前完成包含
-    patch("export module quill;\r\n",
-        "#if defined(__APPLE__)\r\n#include <mach/mach_error.h>\r\n#include <mach/thread_act.h>\r\n#include <mach/thread_policy.h>\r\n#endif\r\n\r\nexport module quill;\r\n")
+    patch("#if !defined(__INTEL_COMPILER)\n",
+        "#if !defined(__INTEL_COMPILER) && (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64))\n")
+    -- Apple 系统头与遗漏的标准头须在 Quill 的模块声明前完成包含
+    patch("export module quill;\n",
+        "#if defined(__APPLE__)\n#include <charconv>\n#include <fcntl.h>\n#include <mach/mach_error.h>\n#include <mach/thread_act.h>\n#include <mach/thread_policy.h>\n#include <sched.h>\n#include <sys/file.h>\n#include <sys/mman.h>\n#include <time.h>\n#include <unistd.h>\n#endif\n\nexport module quill;\n")
     -- Clang 通过接口扩展名识别模块，原始入口保留在归档树中
     io.writefile(path.join(wrap, "src/quill.cppm"), content)
 

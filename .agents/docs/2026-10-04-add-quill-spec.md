@@ -58,14 +58,14 @@ odygrd = { path = "/home/helan/community/mcpp-community/mcpp-index" }
 | Linux 链接 | `ldflags = { "-pthread" }` |
 | 三平台下载 | 相同版本、归档和摘要，使用纯字符串 GLOBAL URL |
 
-安装钩子检查源文件可读且恰有一条 `export module quill;`，以其内容生成同目录 `src/quill.cppm`。原 `.cc` 保留但不加入编译源集。507 个上游文件内容保持不变，适配仅作用于新增的 `.cppm`，保留 CRLF。
+安装钩子检查源文件可读且恰有一条 `export module quill;`，以其内容生成同目录 `src/quill.cppm`。原 `.cc` 保留但不加入编译源集。507 个上游文件内容保持不变，适配仅作用于新增的 `.cppm`；读取后统一按 LF 匹配，兼容安装环境对 CRLF 的文本转换。
 
 macOS ARM 的 PR CI 暴露两处上游模块入口问题，安装钩子执行两项精确替换，匹配次数不是一次即失败：
 
 - x86 intrinsic 包含增加 x86 目标架构条件。Clang 在 ARM 上也能找到 `x86gprintrin.h`，仅靠 `__has_include` 会触发无效汇编约束和不存在的 x86 builtin。
-- 在 global module fragment 中为 Apple 预包含 `mach/mach_error.h`、`mach/thread_act.h`、`mach/thread_policy.h`。否则 Mach 类型在全局模块和 Quill 模块中重复归属，编译报错。
+- 在 global module fragment 中为 Apple 预包含 Mach 头，以及后端使用的 `unistd.h`、`fcntl.h`、`sys/file.h`、`sys/mman.h`、`sched.h`、`time.h` 和遗漏的 `<charconv>`。否则 Mach 类型、`timeval`、`timespec` 等在全局模块和 Quill 模块中重复归属，编译报错。
 
-失败证据见 [PR CI 的 macOS job](https://github.com/mcpplibs/mcpp-index/actions/runs/37198494639/job/111425198293)。适配不修改 Quill 头文件、导出列表或日志实现。
+失败证据见 [PR CI 的 macOS job](https://github.com/mcpplibs/mcpp-index/actions/runs/37198494639/job/111425198293)。适配不修改 Quill 头文件、导出列表或日志实现。后续 CI 的 [macOS 系统头错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892513) 和 [Windows 换行匹配错误](https://github.com/mcpplibs/mcpp-index/actions/runs/37198733789/job/111425892875) 分别对应系统头补全和换行规范化；本地钩子检查已验证 CRLF/LF 生成相同结果，预期替换缺失时安装失败。
 
 扩展名适配参考 [`fmtlib.fmt`](../../pkgs/f/fmtlib.fmt.lua)，避免 Clang 将 `.cc` 当普通翻译单元。实际 GCC、LLVM 构建图均只编译 `.cppm`，分别生成 `quill.gcm`、`quill.pcm`；未增加 `scan_overrides` 或完整生成式 wrapper。没有执行 CMake，`QUILL_BUILD_MODULE=ON` 不是本包的构建开关。
 
