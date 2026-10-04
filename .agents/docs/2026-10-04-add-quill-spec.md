@@ -58,7 +58,14 @@ odygrd = { path = "/home/helan/community/mcpp-community/mcpp-index" }
 | Linux 链接 | `ldflags = { "-pthread" }` |
 | 三平台下载 | 相同版本、归档和摘要，使用纯字符串 GLOBAL URL |
 
-安装钩子检查源文件可读且恰有一条 `export module quill;`，再按字节复制为同目录 `src/quill.cppm`。原 `.cc` 保留但不加入编译源集。逐文件比较确认 507 个上游文件内容均未改变，唯一新增文件是与原入口字节一致的 `.cppm`，保留了 CRLF。
+安装钩子检查源文件可读且恰有一条 `export module quill;`，以其内容生成同目录 `src/quill.cppm`。原 `.cc` 保留但不加入编译源集。507 个上游文件内容保持不变，适配仅作用于新增的 `.cppm`，保留 CRLF。
+
+macOS ARM 的 PR CI 暴露两处上游模块入口问题，安装钩子执行两项精确替换，匹配次数不是一次即失败：
+
+- x86 intrinsic 包含增加 x86 目标架构条件。Clang 在 ARM 上也能找到 `x86gprintrin.h`，仅靠 `__has_include` 会触发无效汇编约束和不存在的 x86 builtin。
+- 在 global module fragment 中为 Apple 预包含 `mach/mach_error.h`、`mach/thread_act.h`、`mach/thread_policy.h`。否则 Mach 类型在全局模块和 Quill 模块中重复归属，编译报错。
+
+失败证据见 [PR CI 的 macOS job](https://github.com/mcpplibs/mcpp-index/actions/runs/37198494639/job/111425198293)。适配不修改 Quill 头文件、导出列表或日志实现。
 
 扩展名适配参考 [`fmtlib.fmt`](../../pkgs/f/fmtlib.fmt.lua)，避免 Clang 将 `.cc` 当普通翻译单元。实际 GCC、LLVM 构建图均只编译 `.cppm`，分别生成 `quill.gcm`、`quill.pcm`；未增加 `scan_overrides` 或完整生成式 wrapper。没有执行 CMake，`QUILL_BUILD_MODULE=ON` 不是本包的构建开关。
 
@@ -104,10 +111,11 @@ export MCPP_VENDORED_XLINGS=/tmp/quill-implementation/mcpp-2026.10.1.2-linux-x86
 | 隔离临时索引安装及 GCC/LLVM 测试 | 各 `1 passed; 0 failed` |
 | 正式 workspace Linux GCC 16.1.0 | `1 passed; 0 failed`，19.78 秒，包含 6.9 秒下载 |
 | 正式 workspace Linux LLVM 22.1.8 / libc++ | `1 passed; 0 failed`，6.03 秒 |
+| 模块入口适配后的隔离冷安装及 GCC/LLVM | 各 `1 passed; 0 failed`，GCC 19.97 秒、LLVM 6.05 秒；507 个原始文件及生成入口的两处替换均已逐字节核对 |
 | 正式 workspace GCC 增量 | `1 passed; 0 failed`，0.15 秒，构建 0.03 秒 |
 | 独立普通消费工程 | `/tmp/quill-implementation/consumer` 指向正式 checkout，`mcpp run --cache off` 实际编译、链接、运行上述日志断言，退出 0 |
 | 冷安装 | 隔离工程、正式 workspace、普通消费工程分别实际下载和安装；不将 `--cache off` 本身当作重装证据 |
-| 安装文件比较 | 507 个上游文件内容不变，仅新增字节一致的 `.cppm` |
+| 安装文件比较 | 507 个上游文件内容不变，仅新增带两处模块入口适配的 `.cppm` |
 | Lua 语法与三平台 xpkg 解析 | 通过，三平台均解析为 1 个 source、1 个 include 根 |
 | 镜像 URL、包身份、保留 namespace | 新描述符通过对应 lint |
 | 跨包引用、三平台版本一致性、重复版本 | 全仓对应 lint 通过 |
@@ -118,6 +126,6 @@ export MCPP_VENDORED_XLINGS=/tmp/quill-implementation/mcpp-2026.10.1.2-linux-x86
 
 ## 6. 未验证与发布边界
 
-macOS、Windows 尚未实际构建运行，三平台描述符解析不等于运行验收。本节记录本地验证边界，跨平台结果以 PR CI 为准；未上传 CN 镜像。上游仍将模块标为实验性；本次不承诺所有 sink/codec/metrics、跨 DLL、完整文本头混用或性能指标。
+首次 PR CI 的 Windows 构建运行通过；macOS ARM 的失败由上述两处模块入口适配处理，最终验收以最新提交的 CI 结果为准。三平台描述符解析不等于运行验收。本节记录本地验证边界，跨平台结果以 PR CI 为准；未上传 CN 镜像。上游仍将模块标为实验性；本次不承诺所有 sink/codec/metrics、跨 DLL、完整文本头混用或性能指标。
 
 后续三平台发布前应让 macOS/Windows 运行同一成员；若需要超出模块入口的小范围适配、改动日志实现或 mcpp 引擎，应先保留失败复现并重新审查范围，不以跳过平台或静默改成头文件包代替验收。
